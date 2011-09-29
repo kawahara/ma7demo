@@ -1,0 +1,12 @@
+<?php
+
+define('URL', '');
+define('DEVELOPER_ID', '');
+
+function apath($uri = '') {
+  if ($uri === '') {
+    return URL;
+  }
+
+  return URL.'/'.$uri;
+}
