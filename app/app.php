@@ -301,7 +301,8 @@ $(window).load(function() {
                   });
                   li.append(img);
                   li.append($('<div>').addClass('item-name').append($('<a>')
-                    .click(function() { $.view(item.affiliateUrl || item.url); })
+                    .attr('href', '#')
+                    .click(function(event) { mixi.util.requestExternalNavigateTo(item.affiliateUrl || item.itemUrl); })
                     .text(item.itemName))
                   );
                   li.append($('<div>').addClass('price').text('￥' + item.itemPrice));
@@ -315,6 +316,33 @@ $(window).load(function() {
 
                 if (objectSize(t.selected) >= 2) {
                   $('#form-question-input').show();
+                  $('#form-question').bind('submit', function(event) {
+                    $.ajax({
+                      url: '/appdata/@viewer/@self',
+                      data: { fields: 'list' },
+                      dataType: 'data',
+                      success: function(data) {
+                        if (!(data instanceof Object && data.list && data.list instanceof Object)) {
+                          data = { list: {}};
+                        }
+                        var key = 'rakuten';
+                        for (var k in t.selected) {
+                          key += '_' + k;
+                        }
+                        data.list[key] = "";
+                        $.ajax({
+                          type: 'post',
+                          url: '/appdata/@viewer/@self',
+                          data: data,
+                          dataType: 'data',
+                          success: function() {
+                          }
+                        });
+                      }
+                    });
+
+                    return false;
+                  });
                 }
 
                 $(window).adjustHeight();
@@ -377,7 +405,6 @@ $(window).load(function() {
 
   $('#genre0 select').change(fetchTopGenre);
   fetchTopGenre.apply($('#genre0 select'));
-  $('#form-question').hide();
   $(window).adjustHeight();
 });
 </script>
