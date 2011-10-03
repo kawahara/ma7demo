@@ -1,4 +1,7 @@
-<?php require_once(dirname(__FILE__).'/../conf.php') ?>
+<?php
+require_once(dirname(__FILE__).'/../conf.php');
+$vsimg = apath('vs.png');
+?>
 <script type="text/javascript" src="<?php echo apath('js/jquery-1.6.4.min.js') ?>"></script>
 <script type="text/javascript" src="<?php echo apath('js/jquery-ui-1.8.16.custom.min.js') ?>"></script>
 <script type="text/javascript" src="<?php echo apath('js/opensocial-jquery.min.js') ?>"></script>
@@ -49,10 +52,40 @@
   }
 
   #form-question-vs ul li {
-    padding: 0 0 0 10px;
+    padding: 0px;
     float: left;
     width: 130px;
     margin: 0;
+  }
+
+  #form-question-vs ul li.vs-text {
+    height: 150px;
+    width: 150px;
+    text-align: center;
+    font-weight: bold;
+    background-image: url("<?php echo $vsimg ?>");
+    background-repeat: no-repeat;
+  }
+
+  #form-question-vs ul li.vs-text div {
+    color: white;
+    font-size: 1.2em;
+    margin-top: 65px;
+  }
+
+
+  #form-question-vs ul li .item-name {
+    font-size: 0.9em;
+  }
+
+  #form-question-vs ul li .price {
+    color: #CC0000;
+    font-size: 1.2em;
+  }
+
+  #form-question-input {
+    display: none;
+    clear: both;
   }
 
   #search-pager {
@@ -98,6 +131,12 @@ $(window).load(function() {
   var rakutenDeveloperId = '<?php echo DEVELOPER_ID ?>';
 
   $('#screen-search').show();
+
+  var objectSize = function(obj) {
+    var l=0;
+    $.each(obj, function(i, elem) { l++; });
+    return l;
+  }
 
   var RakutenIchiba = function() {
     this.selected = {};
@@ -239,7 +278,7 @@ $(window).load(function() {
                 $('#form-question').show();
                 ul = $('#form-question-vs ul');
 
-                if (ul.length <= 0) {
+                if (ul.length == 0) {
                   ul = $('<ul>');
                   $('#form-question-vs').append(ul);
                 }
@@ -249,7 +288,7 @@ $(window).load(function() {
                   return false;
                 }
 
-                if (ul.children().length <= 2) {
+                if (objectSize(t.selected) < 2) {
                   li = $('<li>');
                   img = $('<img>');
                   if (item.mediumImageUrl) {
@@ -257,15 +296,27 @@ $(window).load(function() {
                   } else {
                     img.attr('src', path + '/noimage.png');
                   }
+                  img.bind('load', function() {
+                    $(window).adjustHeight();
+                  });
                   li.append(img);
-                  li.append($('<div>').text(item.itemName));
+                  li.append($('<div>').addClass('item-name').append($('<a>')
+                    .click(function() { $.view(item.affiliateUrl || item.url); })
+                    .text(item.itemName))
+                  );
+                  li.append($('<div>').addClass('price').text('￥' + item.itemPrice));
                   ul.append(li);
                   t.selected[item.itemCode] = item;
                 }
 
-                if (ul.children().length <= 1) {
-                  ul.append($('<li>').text('vs'));
+                if (objectSize(t.selected) == 1) {
+                  ul.append($('<li>').addClass('vs-text').append($('<div>').text('VS')));
                 }
+
+                if (objectSize(t.selected) >= 2) {
+                  $('#form-question-input').show();
+                }
+
                 $(window).adjustHeight();
               });
             }
@@ -290,6 +341,16 @@ $(window).load(function() {
       var input = $(event.target).children("input[name=keyword]");
       var value = input ? input.val() : undefined;
       return this._search(value, 1, true);
+    },
+
+    reset: function(event) {
+      this.selected = {};
+      $('#form-question-input').hide();
+      var ul = $('#form-question-vs ul');
+      if (ul.length != 0) {
+        ul.empty();
+      }
+      $(window).adjustHeight();
     }
   };
 
@@ -311,6 +372,7 @@ $(window).load(function() {
     handle.getTopGenre();
     $('#form-search').unbind();
     $('#form-search').bind('submit', function (event) { return handle.search.apply(handle, [event])});
+    $('#form-question').bind('reset', function (event) { return handle.reset.apply(handle, [event])});
   };
 
   $('#genre0 select').change(fetchTopGenre);
@@ -342,11 +404,11 @@ $(window).load(function() {
   <div id="form-question-content">
     <form id="form-question">
       <div id="form-question-vs"></div>
-      <div>
-        <label for="form-question-question">Comment: </label><input type="input" name="question" id="form-question-question" />
+      <div id="form-question-input">
+        <label for="form-question-question">コメント: </label><input type="input" name="question" id="form-question-question" />
+        <input type="submit" value="マイミクに聞く" />
+        <input type="reset" value="リセット" />
       </div>
-      <input type="submit" value="マイミクに聞く" />
-      <input type="reset" value="リセット" />
     </form>
   </div>
 </div>
