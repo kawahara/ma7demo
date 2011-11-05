@@ -8,6 +8,22 @@ $vsimg = apath('vs.png');
 <script type="text/javascript" src="<?php echo apath('js/jquery.pagination.js') ?>"></script>
 <style type="text/css">
 <!--
+  a:link {
+    color: #258F88;
+  }
+
+  a:hover {
+    color: #996600;
+  }
+
+  a:visited {
+    color: #258F88;
+  }
+
+  a:active {
+    color: #996600;
+  }
+
   .screen {
     display: none;
   }
@@ -89,7 +105,6 @@ $vsimg = apath('vs.png');
     margin: 0;
   }
 
-
   #form-question-input {
     display: none;
     clear: both;
@@ -130,10 +145,26 @@ $vsimg = apath('vs.png');
     border-color:#999;
     background:#fff;
   }
+
+  .bubble {
+    border-left: 5px solid #D0D0D0;
+    border-top: 5px solid transparent;
+    margin-left:10px;
+  }
+
+  .bubble .body {
+    border: 1px solid #D0D0D0;
+    border-radius: 6px 6px 6px 6px;
+    margin: 0 0 10px -10px;
+    background: none repeat scroll 0 0 white;
+    padding:5px;
+    width: 500px;
+  }
+
 -->
 </style>
 <script type="text/javascript">
-jQuery(document).ready(function($, data) {
+jQuery(document).ready(function($, pdata) {
   var path = '<?php echo apath() ?>';
   var rakutenDeveloperId = '<?php echo DEVELOPER_ID ?>';
 
@@ -345,28 +376,49 @@ jQuery(document).ready(function($, data) {
 
                 if (objectSize(t.selected) >= 2) {
                   $('#form-question-input').show();
+
                   $('#form-question').bind('submit', function(event) {
-                    $.ajax({
-                      url: '/appdata/@viewer/@self',
-                      data: { fields: 'list' },
-                      dataType: 'data',
-                      success: function(data) {
-                        if (!(data instanceof Object && data.list && data.list instanceof Object)) {
-                          data = { list: {}};
-                        }
-                        var key = 'rakuten';
-                        for (var k in t.selected) {
-                          key += '_' + k;
-                        }
-                        data.list[key] = "";
-                        $.ajax({
-                          type: 'post',
-                          url: '/appdata/@viewer/@self',
-                          data: data,
-                          dataType: 'data',
-                          success: function() {
-                          }
+                    pdata = {'vote': Object.keys(t.selected).join(',')};
+                    var comment = $("#form-question-question");
+                    if (comment && comment.val()) {
+                      pdata['comment'] = comment.val();
+                    }
+                    var escaped = gadgets.io.encodeValues({
+                      appParams: gadgets.json.stringify(pdata),
+                    });
+
+                    var mitems = [];
+                    $.each(t.selected, function(k, v) {
+                      if (v.smallImageUrl) {
+                        mitems.push({
+                          mimeType : 'image/jpeg',
+                          url : v.smallImageUrl
                         });
+                      } else {
+                        mitems.push({
+                          mimeType : 'image/png',
+                          url : path + "/noimage-a.png"
+                        });
+                      }
+                      if (mitems.length == 1) {
+                        mitems.push({
+                          mimeType : 'image/png',
+                          url : path + "/vs-a.png"
+                        });
+                      }
+                    });
+
+                    $.ajax({
+                      url: '/activities/@viewer/@self',
+                      type: 'post',
+                      data: {
+                        title: "どちらのアイテムがよいかを聞いています。",
+                        url: "http://mixi.jp/run_appli.pl?id=34093&" + escaped,
+                        mediaItems: mitems
+                      },
+                      dataType: 'data',
+                      success: function() {
+                        buildScreenVote();
                       }
                     });
 
@@ -442,7 +494,7 @@ jQuery(document).ready(function($, data) {
   var buildScreenVote = function() {
     $('#screen-search').hide();
     $('#screen-vote').show();
-    var codes = data.vote.split(",");
+    var codes = pdata.vote.split(",");
     topOperations.ichiba.searchByItemCode(function(item1) {
       topOperations.ichiba.searchByItemCode(function(item2) {
         var ul = $('<ul>');
@@ -467,12 +519,23 @@ jQuery(document).ready(function($, data) {
           li.append($('<div>').addClass('price').text('￥' + numberFormat(item.itemPrice)));
 
           var votediv = $('<div>').addClass('votem');
-          var voteul = $('<ul>');
-          votediv.append(voteul);
-          for (var i = 0; i < 2; i++) {
-            voteul.append($('<li>').append($('<img>').attr('src', 'http://img.mixi.jp/img/basic/common/noimage_member40.gif')));
-          }
+
+
+          var escaped = gadgets.io.encodeValues({
+            appParams: gadgets.json.stringify(pdata),
+            s: item.itemCode
+          });
+
+          votediv
+            .attr('data-plugins-type', 'mixi-favorite')
+            .attr('data-service-key', '89cc92099ba5ab6499dc7f6f704e2d4be3ad3cd3')
+            .attr('data-href', 'http://mixi.jp/run_appli.pl?id=34093&' + escaped)
+            .attr('data-show-faces', 'true')
+            .attr('data-show-count', 'true')
+            .attr('data-show-comment', 'true')
+            .attr('data-width', '120');
           li.append(votediv);
+          (function(d) {var s = d.createElement('script'); s.type = 'text/javascript'; s.async = true;s.src = 'http://static.mixi.jp/js/plugins.js#lang=ja';d.getElementsByTagName('head')[0].appendChild(s);})(document);
 
           ul.append(li);
         }
@@ -505,30 +568,40 @@ jQuery(document).ready(function($, data) {
             return false;
           })
         ).append('さんの質問');
-        var question2 = $('<div>')
-          .text("どちらがよさそうですか?");
+        var comment = pdata.comment || "どちらがよさそうですか?";
+        var question2 = $('<div>').addClass('bubble').append(
+          $('<p>').addClass('body').text(comment)
+        );
 
         $('#vote-question').append(question1).append(question2);
       }
     });
+
+    $("#vote-sw a").click(function(event) {
+      buildScreenSearch();
+      return false;
+    });
   }
 
-  if (data.vote) {
+  if (pdata.vote) {
     buildScreenVote();
   } else {
     buildScreenSearch();
   }
 
   $('#genre0 select').change(fetchTopGenre);
-  $('a [href=http://webservice.rakuten.co.jp/]').click(function(event) {
-    mixi.util.requestExternalNavigateTo("mixi.util.requestExternalNavigateTo");
+  $('a[href=http://webservice.rakuten.co.jp/]').click(function(event) {
+    mixi.util.requestExternalNavigateTo("http://webservice.rakuten.co.jp/");
     return false;
   });
 });
 </script>
+<div><img src="<?php echo apath("title.png") ?>" alt="Dotchi?" /></div>
+<div>
 <!-- Rakuten Web Services Attribution Snippet FROM HERE -->
 <a href="http://webservice.rakuten.co.jp/" target="_blank"><img src="http://webservice.rakuten.co.jp/img/credit/200709/credit_31130.gif" border="0" alt="楽天ウェブサービスセンター" title="楽天ウェブサービスセンター" width="311" height="30"/></a>
 <!-- Rakuten Web Services Attribution Snippet TO HERE -->
+</div>
 <div id="screen-search" class="screen">
   <div id="form-search-content">
     <form id="form-search" action="">
@@ -563,4 +636,5 @@ jQuery(document).ready(function($, data) {
 <div id="screen-vote" class="screen">
 <div id="vote-question"></div>
 <div id="vote-vs" class="vs"></div>
+<div id="vote-sw" style="clear:both"><a href="#">新たに質問を作る</a></div>
 </div>
