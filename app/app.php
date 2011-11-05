@@ -45,20 +45,20 @@ $vsimg = apath('vs.png');
     clear: both;
   }
 
-  #form-question-vs ul {
+  .vs ul {
     list-style: none;
     margin: 0;
     padding: 0;
   }
 
-  #form-question-vs ul li {
+  .vs ul li {
     padding: 0px;
     float: left;
     width: 130px;
     margin: 0;
   }
 
-  #form-question-vs ul li.vs-text {
+  .vs ul li.vs-text {
     height: 150px;
     width: 150px;
     text-align: center;
@@ -67,21 +67,28 @@ $vsimg = apath('vs.png');
     background-repeat: no-repeat;
   }
 
-  #form-question-vs ul li.vs-text div {
+  .vs ul li.vs-text div {
     color: white;
     font-size: 1.2em;
     margin-top: 65px;
   }
 
 
-  #form-question-vs ul li .item-name {
+  .vs ul li .item-name {
     font-size: 0.9em;
   }
 
-  #form-question-vs ul li .price {
+  .vs ul li .price {
     color: #CC0000;
     font-size: 1.2em;
   }
+
+  .vs ul li .votem ul li {
+    float: left;
+    width: 40px;
+    margin: 0;
+  }
+
 
   #form-question-input {
     display: none;
@@ -126,16 +133,18 @@ $vsimg = apath('vs.png');
 -->
 </style>
 <script type="text/javascript">
-$(window).load(function() {
+jQuery(document).ready(function($, data) {
   var path = '<?php echo apath() ?>';
   var rakutenDeveloperId = '<?php echo DEVELOPER_ID ?>';
-
-  $('#screen-search').show();
 
   var objectSize = function(obj) {
     var l=0;
     $.each(obj, function(i, elem) { l++; });
     return l;
+  }
+
+  var numberFormat = function(num){
+      return num.toString().replace(/([\d]+?)(?=(?:\d{3})+$)/g, function(t){ return t + ','; });
   }
 
   var RakutenIchiba = function() {
@@ -175,6 +184,9 @@ $(window).load(function() {
         page: pagen
       };
     },
+    _getSearchByItemCodeParameter: function(code) {
+      return {operation: "ItemCodeSearch", version: "2010-08-05", developerId: rakutenDeveloperId, itemCode: code};
+    },
 
     _build: function(obj, data, blankLabel) {
       if (data.Body && data.Body.GenreSearch && data.Body.GenreSearch.child instanceof Array) {
@@ -191,6 +203,23 @@ $(window).load(function() {
       }
 
       return false;
+    },
+
+    searchByItemCode: function(callback, code) {
+      var t = this;
+      $.ajax({
+        url: t._getUrl(),
+        data: t._getSearchByItemCodeParameter(code),
+        dataType: 'json',
+        success: function(data) {
+          if (data.Body && data.Body.ItemCodeSearch &&
+            data.Body.ItemCodeSearch.Items &&
+            data.Body.ItemCodeSearch.Items.Item instanceof Array &&
+            data.Body.ItemCodeSearch.Items.Item.length >= 1
+          ) {
+            callback(data.Body.ItemCodeSearch.Items.Item[0]);
+          }
+      }});
     },
 
     getTopGenre: function() {
@@ -305,7 +334,7 @@ $(window).load(function() {
                     .click(function(event) { mixi.util.requestExternalNavigateTo(item.affiliateUrl || item.itemUrl); })
                     .text(item.itemName))
                   );
-                  li.append($('<div>').addClass('price').text('￥' + item.itemPrice));
+                  li.append($('<div>').addClass('price').text('￥' + numberFormat(item.itemPrice)));
                   ul.append(li);
                   t.selected[item.itemCode] = item;
                 }
@@ -403,11 +432,103 @@ $(window).load(function() {
     $('#form-question').bind('reset', function (event) { return handle.reset.apply(handle, [event])});
   };
 
+  var buildScreenSearch = function() {
+    $('#screen-search').show();
+    $('#screen-vote').hide();
+    fetchTopGenre.apply($('#genre0 select'));
+    $(window).adjustHeight();
+  }
+
+  var buildScreenVote = function() {
+    $('#screen-search').hide();
+    $('#screen-vote').show();
+    var codes = data.vote.split(",");
+    topOperations.ichiba.searchByItemCode(function(item1) {
+      topOperations.ichiba.searchByItemCode(function(item2) {
+        var ul = $('<ul>');
+
+        var addItem = function(item) {
+          var li = $('<li>');
+          var img = $('<img>');
+          if (item.mediumImageUrl) {
+            img.attr('src', item.mediumImageUrl);
+          } else {
+            img.attr('src', path + '/noimage.png');
+          }
+          img.bind('load', function() {
+            $(window).adjustHeight();
+          });
+          li.append(img);
+          li.append($('<div>').addClass('item-name').append($('<a>')
+            .attr('href', '#')
+            .click(function(event) { mixi.util.requestExternalNavigateTo(item.affiliateUrl || item.itemUrl); })
+            .text(item.itemName))
+          );
+          li.append($('<div>').addClass('price').text('￥' + numberFormat(item.itemPrice)));
+
+          var votediv = $('<div>').addClass('votem');
+          var voteul = $('<ul>');
+          votediv.append(voteul);
+          for (var i = 0; i < 2; i++) {
+            voteul.append($('<li>').append($('<img>').attr('src', 'http://img.mixi.jp/img/basic/common/noimage_member40.gif')));
+          }
+          li.append(votediv);
+
+          ul.append(li);
+        }
+
+        addItem(item1);
+        ul.append($('<li>').addClass('vs-text').append($('<div>').text('VS')));
+        addItem(item2);
+        $('#vote-vs').append(ul);
+
+        $(window).adjustHeight();
+      }, codes[1]);
+    }, codes[0]);
+
+    $.ajax({
+      url: '/people/@owner/@self',
+      data: {},
+      dataType: 'data',
+      success: function(people) {
+        var person = people[0];
+        var question1 = $('<div>').append(
+          $('<img>')
+          .attr('src', person.thumbnailUrl)
+          .attr('alt', person.nickname)
+        ).append(
+          $('<a>')
+          .attr('href', "#")
+          .text(person.nickname)
+          .click(function(event){
+            $.view('profile');
+            return false;
+          })
+        ).append('さんの質問');
+        var question2 = $('<div>')
+          .text("どちらがよさそうですか?");
+
+        $('#vote-question').append(question1).append(question2);
+      }
+    });
+  }
+
+  if (data.vote) {
+    buildScreenVote();
+  } else {
+    buildScreenSearch();
+  }
+
   $('#genre0 select').change(fetchTopGenre);
-  fetchTopGenre.apply($('#genre0 select'));
-  $(window).adjustHeight();
+  $('a [href=http://webservice.rakuten.co.jp/]').click(function(event) {
+    mixi.util.requestExternalNavigateTo("mixi.util.requestExternalNavigateTo");
+    return false;
+  });
 });
 </script>
+<!-- Rakuten Web Services Attribution Snippet FROM HERE -->
+<a href="http://webservice.rakuten.co.jp/" target="_blank"><img src="http://webservice.rakuten.co.jp/img/credit/200709/credit_31130.gif" border="0" alt="楽天ウェブサービスセンター" title="楽天ウェブサービスセンター" width="311" height="30"/></a>
+<!-- Rakuten Web Services Attribution Snippet TO HERE -->
 <div id="screen-search" class="screen">
   <div id="form-search-content">
     <form id="form-search" action="">
@@ -430,7 +551,7 @@ $(window).load(function() {
   <div id="search-pager"></div>
   <div id="form-question-content">
     <form id="form-question">
-      <div id="form-question-vs"></div>
+      <div id="form-question-vs" class="vs"></div>
       <div id="form-question-input">
         <label for="form-question-question">コメント: </label><input type="input" name="question" id="form-question-question" />
         <input type="submit" value="マイミクに聞く" />
@@ -439,7 +560,7 @@ $(window).load(function() {
     </form>
   </div>
 </div>
-<div id="screen-list" class="screen">
-</div>
 <div id="screen-vote" class="screen">
+<div id="vote-question"></div>
+<div id="vote-vs" class="vs"></div>
 </div>
